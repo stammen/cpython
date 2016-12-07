@@ -79,6 +79,12 @@ WIN32 is still required for the locale module.
 
 #define MS_WIN32 /* only support win32 and greater. */
 #define MS_WINDOWS
+#ifdef WINAPI_FAMILY
+#   include <winapifamily.h>
+#   if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
+#       define MS_UWP
+#   endif
+#endif
 #ifndef PYTHONPATH
 #	define PYTHONPATH ".\\DLLs;.\\lib;.\\lib\\plat-win;.\\lib\\lib-tk"
 #endif
@@ -89,7 +95,7 @@ WIN32 is still required for the locale module.
 #endif
 
 /* CE6 doesn't have strdup() but _strdup(). Assume the same for earlier versions. */
-#if defined(MS_WINCE)
+#if defined(MS_WINCE) || defined(MS_UWP)
 #  include <stdlib.h>
 #  define strdup _strdup
 #endif
@@ -98,6 +104,15 @@ WIN32 is still required for the locale module.
 /* Windows CE does not support environment variables */
 #define getenv(v) (NULL)
 #define environ (NULL)
+#endif
+
+#if defined(MS_UWP)
+/* UWP apps do not have environment variables */
+#define getenv(v) (NULL)
+#undef environ
+#define environ (NULL)
+/* getpid is not available, but GetCurrentProcessId is */
+#define getpid GetCurrentProcessId
 #endif
 
 /* Compiler specific defines */
@@ -159,6 +174,11 @@ WIN32 is still required for the locale module.
 #endif
 #endif /* MS_WIN64 */
 
+#if defined(MS_UWP)
+/* UWP requires Windows 10 or later */
+#define Py_WINVER 0x0A00 /* _WIN32_WINNT_WIN8 */
+#define Py_NTDDI NTDDI_WIN10
+#else
 /* set the version macros for the windows headers */
 #ifdef MS_WINX64
 /* 64 bit only runs on XP or greater */
@@ -172,6 +192,7 @@ WIN32 is still required for the locale module.
 #define Py_WINVER 0x0500
 #endif
 #define Py_NTDDI NTDDI_WIN2KSP4
+#endif
 #endif
 
 /* We only set these values when building Python - we don't want to force
@@ -549,7 +570,7 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
 /* #define HAVE_ALTZONE */
 
 /* Define if you have the putenv function.  */
-#ifndef MS_WINCE
+#if !defined(MS_WINCE) && !defined(MS_UWP)
 #define HAVE_PUTENV
 #endif
 

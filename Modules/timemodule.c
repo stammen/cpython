@@ -42,6 +42,15 @@ extern int ftime(struct timeb *);
 #include <windows.h>
 #include "pythread.h"
 
+
+/* VS 2015 defines these names with a leading underscore */
+#if _MSC_VER >= 1900
+#define timezone _timezone
+#define daylight _daylight
+#define tzname _tzname
+#endif
+
+
 /* helper to allow us to interrupt sleep() on Windows*/
 static HANDLE hInterruptEvent = NULL;
 static BOOL WINAPI PyCtrlHandler(DWORD dwCtrlType)

@@ -121,7 +121,11 @@ corresponding Unix manual entries for more information on calls.");
 #define HAVE_SYSTEM     1
 #define HAVE_WAIT       1
 #else
-#ifdef _MSC_VER         /* Microsoft compiler */
+#if defined(MS_UWP)   /* Microsoft compiler for UWP apps */
+#define HAVE_GETCWD     1 /* uses a fake getcwd */
+#define HAVE_FSYNC      1
+#define fsync _commit
+#elif defined(_MSC_VER) /* Microsoft compiler */
 #define HAVE_GETCWD     1
 #define HAVE_SPAWNV     1
 #define HAVE_EXECV      1
@@ -272,7 +276,9 @@ extern int lstat(const char *, struct stat *);
 #include "osdefs.h"
 #include <malloc.h>
 #include <windows.h>
+#ifndef MS_UWP
 #include <shellapi.h>   /* for ShellExecute() */
+#endif
 #define popen   _popen
 #define pclose  _pclose
 #endif /* _MSC_VER */
@@ -529,7 +535,7 @@ _PyInt_FromDev(PY_LONG_LONG v)
 #endif
 
 
-#if defined _MSC_VER && _MSC_VER >= 1400
+#if defined _MSC_VER && _MSC_VER >= 1400 && _MSC_VER < 1900
 /* Microsoft CRT in VS2005 and higher will verify that a filehandle is
  * valid and raise an assertion if it isn't.
  * Normally, an invalid fd is likely to be a C program error and therefore
@@ -943,6 +949,22 @@ win32_1str(PyObject* args, char* func,
 
 }
 
+#ifdef MS_UWP
+
+/* Changing the current directory is not supported for UWP apps,
+so these are implemented to provide warnings only. */
+
+static BOOL __stdcall
+win32_chdir(LPCSTR path)
+{
+    PyErr_WarnEx(PyExc_DeprecationWarning,
+        "os.chdir has been deprecated for UWP apps, "
+        "use absolute paths instead.",
+        0);
+    return TRUE;
+}
+
+#else
 /* This is a reimplementation of the C library's chdir function,
    but one that produces Win32 errors instead of DOS error codes.
    chdir is essentially a wrapper around SetCurrentDirectory; however,
@@ -970,6 +992,8 @@ win32_chdir(LPCSTR path)
     env[1] = new_path[0];
     return SetEnvironmentVariableA(env, new_path);
 }
+#endif
+
 
 /* The Unicode version differs from the ANSI version
    since the current directory might exceed MAX_PATH characters */
@@ -997,6 +1021,7 @@ win32_wchdir(LPCWSTR path)
             return FALSE;
         }
     }
+#ifndef MS_UWP
     if (wcsncmp(new_path, L"\\\\", 2) == 0 ||
         wcsncmp(new_path, L"//", 2) == 0)
         /* UNC path, nothing to do. */
@@ -1005,6 +1030,7 @@ win32_wchdir(LPCWSTR path)
     result = SetEnvironmentVariableW(env, new_path);
     if (new_path != _new_path)
         free(new_path);
+#endif
     return result;
 }
 #endif
@@ -1105,6 +1131,63 @@ attribute_data_to_stat(WIN32_FILE_ATTRIBUTE_DATA *info, struct win32_stat *resul
     return 0;
 }
 
+#ifdef MS_UWP
+
+static BOOL
+attributes_from_dir_w(LPCWSTR pszFile, FILE_BASIC_INFO *fbi, FILE_STANDARD_INFO *fsi, ULONG *reparse_tag)
+{
+    HANDLE hFindFile;
+    WIN32_FIND_DATAW FileData;
+    hFindFile = FindFirstFileExW(pszFile, FindExInfoBasic, &FileData, FindExSearchNameMatch, NULL, 0);
+    if (hFindFile == INVALID_HANDLE_VALUE)
+        return FALSE;
+    FindClose(hFindFile);
+    memset(fbi, 0, sizeof(*fbi));
+    memset(fsi, 0, sizeof(*fsi));
+    *reparse_tag = 0;
+    fbi->FileAttributes = FileData.dwFileAttributes;
+    fbi->CreationTime.QuadPart = *(LONGLONG*)&FileData.ftCreationTime;
+    fbi->LastAccessTime.QuadPart = *(LONGLONG*)&FileData.ftLastAccessTime;
+    fbi->LastWriteTime.QuadPart = *(LONGLONG*)&FileData.ftLastWriteTime;
+    fsi->EndOfFile.HighPart = FileData.nFileSizeHigh;
+    fsi->EndOfFile.LowPart = FileData.nFileSizeLow;
+    fsi->NumberOfLinks = 1;
+    if (FileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+        *reparse_tag = FileData.dwReserved0;
+    return TRUE;
+}
+
+static BOOL
+get_target_path(HANDLE hdl, wchar_t **target_path)
+{
+    wchar_t *buf;
+    FILE_NAME_INFO fni;
+    if (!GetFileInformationByHandleEx(hdl, FileNameInfo, &fni, sizeof(fni)))
+        return FALSE;
+
+    buf = (wchar_t *)malloc((fni.FileNameLength + 1) * sizeof(wchar_t));
+    if (!buf) {
+        SetLastError(ERROR_OUTOFMEMORY);
+        return FALSE;
+    }
+    wcscpy(buf, fni.FileName);
+    *target_path = buf;
+    return TRUE;
+}
+
+
+static int
+win32_xstat_impl(const char *path, struct _Py_stat_struct *result,
+    BOOL traverse)
+{
+    /* byte-oriented API not supported in app */
+    SetLastError(E_NOTIMPL);
+    return -1;
+}
+
+
+
+#else
 static BOOL
 attributes_from_dir(LPCSTR pszFile, LPWIN32_FILE_ATTRIBUTE_DATA pfad)
 {
@@ -1268,7 +1351,7 @@ win32_fstat(int file_number, struct win32_stat *result)
     result->st_ino = (((__int64)info.nFileIndexHigh)<<32) + info.nFileIndexLow;
     return 0;
 }
-
+#endif
 #endif /* MS_WINDOWS */
 
 PyDoc_STRVAR(stat_result__doc__,
@@ -1704,7 +1787,7 @@ posix_access(PyObject *self, PyObject *args)
     char *path;
     int mode;
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) && !defined(MS_UWP)
     DWORD attr;
     PyUnicodeObject *po;
     if (PyArg_ParseTuple(args, "Ui:access", &po, &mode)) {
@@ -1856,7 +1939,7 @@ posix_chmod(PyObject *self, PyObject *args)
     char *path = NULL;
     int i;
     int res;
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) && !defined(MS_UWP)
     DWORD attr;
     PyUnicodeObject *po;
     if (PyArg_ParseTuple(args, "Ui|:chmod", &po, &i)) {
