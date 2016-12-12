@@ -200,7 +200,7 @@ search_for_prefix(char *argv0_path, char *landmark)
     return 0;
 }
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) && !defined(MS_UWP)
 #ifdef Py_ENABLE_SHARED
 
 /* a string loaded from the DLL at startup.*/
@@ -512,8 +512,10 @@ calculate_path(void)
 
     skiphome = pythonhome==NULL ? 0 : 1;
 #ifdef Py_ENABLE_SHARED
+#ifndef MS_UWP
     machinepath = getpythonregpath(HKEY_LOCAL_MACHINE, skiphome);
     userpath = getpythonregpath(HKEY_CURRENT_USER, skiphome);
+#endif
 #endif
     /* We only use the default relative PYTHONPATH if we havent
        anything better to use! */

@@ -83,6 +83,7 @@ PySys_SetObject(char *name, PyObject *v)
         return PyDict_SetItemString(sd, name, v);
 }
 
+
 static PyObject *
 sys_displayhook(PyObject *self, PyObject *o)
 {

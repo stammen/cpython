@@ -173,6 +173,7 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 
     {
         HINSTANCE hDLL = NULL;
+#ifndef MS_UWP
         char pathbuf[260];
         LPTSTR dummy;
         unsigned int old_mode;
@@ -183,7 +184,7 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
             path is used.  If GetFullPathName() fails, the LoadLibrary
             will certainly fail too, so use its error code */
 
-        /* Don't display a message box when Python can't load a DLL */
+            /* Don't display a message box when Python can't load a DLL */
         old_mode = SetErrorMode(SEM_FAILCRITICALERRORS);
 
         if (GetFullPathName(pathname,
@@ -199,7 +200,25 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 
         /* restore old error mode settings */
         SetErrorMode(old_mode);
+#else
+        wchar_t *wpathname = NULL;
+        wchar_t packagepath[MAX_PATH];
+        size_t len;
+        extern size_t uwp_getinstallpath(wchar_t *buffer, size_t cch);
 
+        /* UWP apps require libraries to be packaged */
+        len = uwp_getinstallpath(packagepath, MAX_PATH);
+        if (len >= 0 && wcsnicmp(packagepath, wpathname, len) == 0)
+        {
+            if (wpathname[len] == '\\' || wpathname[len] == '/')
+                len++;
+            hDLL = LoadPackagedLibrary(&wpathname[len], 0);
+        }
+        else
+        {
+            hDLL = LoadPackagedLibrary(wpathname, 0);
+        }
+#endif
         if (hDLL==NULL){
             char errBuf[256];
             unsigned int errorCode;

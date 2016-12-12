@@ -123,7 +123,22 @@ static int isdir(char *path) {
      * Also reference issue6727:
      * stat() on Windows is broken and doesn't resolve symlinks properly.
      */
+#ifdef MS_UWP
+    {
+        WIN32_FILE_ATTRIBUTE_DATA fad;
+        WCHAR wszFilename[MAX_PATH];
+        MultiByteToWideChar(CP_ACP, 0,
+            path, -1,
+            wszFilename, MAX_PATH);
+
+        if (!GetFileAttributesExW(wszFilename, GetFileExInfoStandard, &fad))
+            rv = INVALID_FILE_ATTRIBUTES;
+        else
+            rv = fad.dwFileAttributes;
+    }
+#else
     rv = GetFileAttributesA(path);
+#endif
     return rv != INVALID_FILE_ATTRIBUTES && rv & FILE_ATTRIBUTE_DIRECTORY;
 }
 #else
