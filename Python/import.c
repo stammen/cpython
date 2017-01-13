@@ -1039,11 +1039,26 @@ static __int64 secs_between_epochs = 11644473600;
 static time_t
 win32_mtime(FILE *fp, char *pathname)
 {
-    __int64 filetime;
-    HANDLE fh;
+  __int64 filetime;
+  HANDLE fh = (HANDLE)_get_osfhandle(fileno(fp));
+
+#ifdef MS_UWP
+    FILE_BASIC_INFO file_information;
+
+    if (fh == INVALID_HANDLE_VALUE ||
+        !GetFileInformationByHandleEx(fh, FileBasicInfo, &file_information, sizeof(file_information))) {
+        PyErr_Format(PyExc_RuntimeError,
+            "unable to get file status from '%s'",
+            pathname);
+        return -1;
+    }
+    /* filetime represents the number of 100ns intervals since
+    1.1.1601 (UTC).  Convert to seconds since 1.1.1970 (UTC). */
+    filetime = (__int64)file_information.LastAccessTime.HighPart << 32 |
+        file_information.LastAccessTime.LowPart;
+#else
     BY_HANDLE_FILE_INFORMATION file_information;
 
-    fh = (HANDLE)_get_osfhandle(fileno(fp));
     if (fh == INVALID_HANDLE_VALUE ||
         !GetFileInformationByHandle(fh, &file_information)) {
         PyErr_Format(PyExc_RuntimeError,
@@ -1055,6 +1070,7 @@ win32_mtime(FILE *fp, char *pathname)
        1.1.1601 (UTC).  Convert to seconds since 1.1.1970 (UTC). */
     filetime = (__int64)file_information.ftLastWriteTime.dwHighDateTime << 32 |
                file_information.ftLastWriteTime.dwLowDateTime;
+#endif
     return filetime / 10000000 - secs_between_epochs;
 }
 
@@ -1704,6 +1720,29 @@ case_ok(char *buf, Py_ssize_t len, Py_ssize_t namelen, char *name)
 
 /* MS_WINDOWS */
 #if defined(MS_WINDOWS)
+#if defined(MS_UWP)
+
+    WIN32_FIND_DATA data;
+    HANDLE h;
+
+    if (Py_GETENV("PYTHONCASEOK") != NULL)
+        return 1;
+
+    WCHAR wszFilename[MAX_PATH];
+    MultiByteToWideChar(CP_ACP, 0,
+        name, -1,
+        wszFilename, MAX_PATH);
+
+    h = FindFirstFileEx(wszFilename, FindExInfoBasic, &data, FindExSearchNameMatch, NULL, 0);
+    if (h == INVALID_HANDLE_VALUE) {
+        PyErr_Format(PyExc_NameError,
+            "Can't find file for module %.100s\n(filename %.300s)",
+            name, buf);
+        return 0;
+    }
+    FindClose(h);
+    return strncmp_t(data.cFileName, wszFilename, namelen) == 0;
+#else
     WIN32_FIND_DATA data;
     HANDLE h;
 
@@ -1719,7 +1758,7 @@ case_ok(char *buf, Py_ssize_t len, Py_ssize_t namelen, char *name)
     }
     FindClose(h);
     return strncmp(data.cFileName, name, namelen) == 0;
-
+#endif
 /* DJGPP */
 #elif defined(DJGPP)
     struct ffblk ffblk;
