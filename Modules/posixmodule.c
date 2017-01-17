@@ -1042,7 +1042,11 @@ win32_wchdir(LPCWSTR path)
 #if defined(MS_WIN64) || defined(MS_WINDOWS)
 #       define STAT win32_stat
 #       define FSTAT win32_fstat
+#ifdef MS_UWP
+#       define STRUCT_STAT struct _Py_stat_struct
+#else
 #       define STRUCT_STAT struct win32_stat
+#endif
 #else
 #       define STAT stat
 #       define FSTAT fstat
@@ -1233,10 +1237,10 @@ _Py_attribute_data_to_stat(FILE_BASIC_INFO *basicInfo, FILE_STANDARD_INFO *stand
 }
 
 static int
-win32_wstat(const wchar_t* path, struct win32_stat *result);
+win32_wstat(const wchar_t* path, struct _Py_stat_struct *result);
 
 static int
-win32_xstat_impl_w(const wchar_t *path, struct win32_stat *result,
+win32_xstat_impl_w(const wchar_t *path, struct _Py_stat_struct *result,
     BOOL traverse) 
 {
     int code;
@@ -1345,13 +1349,13 @@ win32_xstat_impl_w(const wchar_t *path, struct win32_stat *result,
 }
 
 static int
-win32_wstat(const wchar_t* path, struct win32_stat *result)
+win32_wstat(const wchar_t* path, struct _Py_stat_struct *result)
 {
     return win32_xstat_impl_w(path, result, TRUE);
 };
 
 static int
-win32_fstat(int file_number, struct win32_stat *result)
+win32_fstat(int file_number, struct _Py_stat_struct *result)
 {
     FILE_ID_BOTH_DIR_INFO info;
     FILE_STANDARD_INFO sInfo;
@@ -9050,7 +9054,7 @@ win32_startfile(PyObject *self, PyObject *args)
     Py_BEGIN_ALLOW_THREADS
 #ifdef MS_UWP
     wchar_t *wpath = PyUnicode_AsUnicode(unipath);
-    rc = uwp_startfile(woperation, wpath) ? (HINSTANCE)33 : (HINSTANCE)0;
+    rc = uwp_startfile(PyUnicode_AsUnicode(woperation), wpath) ? (HINSTANCE)33 : (HINSTANCE)0;
 #else
     rc = ShellExecuteW((HWND)0, woperation ? PyUnicode_AS_UNICODE(woperation) : 0,
         PyUnicode_AS_UNICODE(unipath),
@@ -9075,7 +9079,7 @@ normal:
     Py_BEGIN_ALLOW_THREADS
 #ifdef MS_UWP
         wchar_t *wpath = PyUnicode_AsUnicode(unipath);
-        rc = uwp_startfile(woperation, wpath) ? (HINSTANCE)33 : (HINSTANCE)0;
+        rc = uwp_startfile(PyUnicode_AsUnicode(woperation), wpath) ? (HINSTANCE)33 : (HINSTANCE)0;
 #else
     rc = ShellExecute((HWND)0, operation, filepath,
                     NULL, NULL, SW_SHOWNORMAL);
