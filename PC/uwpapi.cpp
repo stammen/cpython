@@ -97,6 +97,7 @@ extern "C" {
         return nullptr;
     }
 
+#if 0
     PyObject * uwp_enumcertificates(const char *store_name)
     {
         PyObject *result = NULL;
@@ -176,6 +177,7 @@ extern "C" {
 
         return result;
     }
+#endif
 }
 
 #endif

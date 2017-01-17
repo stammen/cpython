@@ -315,10 +315,12 @@ init_multiprocessing(void)
         PyErr_SetFromWindowsErr(0);
         return;
     }
+#ifndef MS_UWP
     if (!SetConsoleCtrlHandler(ProcessingCtrlHandler, TRUE)) {
         PyErr_SetFromWindowsErr(0);
         return;
     }
+#endif /* MS_UWP */
 #endif
 
     /* Add configuration macros */

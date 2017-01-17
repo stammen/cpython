@@ -420,7 +420,17 @@ PyErr_SetFromErrno(PyObject *exc)
 }
 
 #ifdef MS_WINDOWS
+
 /* Windows specific error code handling */
+PyObject *PyErr_SetExcFromWindowsErrWithFilenameObject(
+    PyObject *exc,
+    int ierr,
+    PyObject *filenameObject)
+{
+    return PyErr_SetExcFromWindowsErrWithFilenameObjects(exc, ierr,
+        filenameObject, NULL);
+}
+
 PyObject *PyErr_SetExcFromWindowsErrWithFilenameObjects(
     PyObject *exc,
     int ierr,

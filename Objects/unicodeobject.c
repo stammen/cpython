@@ -3913,11 +3913,12 @@ PyObject *PyUnicode_AsASCIIString(PyObject *unicode)
 static int is_dbcs_lead_byte(const char *s, int offset)
 {
     const char *curr = s + offset;
-
+#ifndef MS_UWP
     if (IsDBCSLeadByte(*curr)) {
         const char *prev = CharPrev(s, curr);
         return (prev == curr) || !IsDBCSLeadByte(*prev) || (curr - prev == 2);
     }
+#endif
     return 0;
 }
 

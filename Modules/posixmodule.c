@@ -4778,18 +4778,31 @@ PyDoc_STRVAR(posix__isdir__doc__,
 static PyObject *
 posix__isdir(PyObject *self, PyObject *args)
 {
+#ifndef MS_UWP
     char *path;
+#endif
     PyUnicodeObject *po;
     DWORD attributes;
 
     if (PyArg_ParseTuple(args, "U|:_isdir", &po)) {
         Py_UNICODE *wpath = PyUnicode_AS_UNICODE(po);
 
+#ifdef MS_UWP
+        WIN32_FILE_ATTRIBUTE_DATA fad;
+        if (!GetFileAttributesEx(wpath, GetFileExInfoStandard, &fad))
+        {
+            Py_RETURN_FALSE;
+        }
+        attributes = fad.dwFileAttributes;
+#else
         attributes = GetFileAttributesW(wpath);
+#endif
         if (attributes == INVALID_FILE_ATTRIBUTES)
             Py_RETURN_FALSE;
         goto check;
     }
+
+#ifndef MS_UWP
     /* Drop the argument parsing error as narrow strings
        are also valid. */
     PyErr_Clear();
@@ -4802,7 +4815,7 @@ posix__isdir(PyObject *self, PyObject *args)
     PyMem_Free(path);
     if (attributes == INVALID_FILE_ATTRIBUTES)
         Py_RETURN_FALSE;
-
+#endif
 check:
     if (attributes & FILE_ATTRIBUTE_DIRECTORY)
         Py_RETURN_TRUE;

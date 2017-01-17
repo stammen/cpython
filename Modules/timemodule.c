@@ -886,7 +886,9 @@ inittime(void)
     */
     main_thread = PyThread_get_thread_ident();
     hInterruptEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+#ifndef MS_UWP
     SetConsoleCtrlHandler( PyCtrlHandler, TRUE);
+#endif
 #endif /* MS_WINDOWS */
     if (!initialized) {
         PyStructSequence_InitType(&StructTimeType,

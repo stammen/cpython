@@ -338,7 +338,7 @@ unpack_string(LogReaderObject *self, PyObject **pvalue)
 static int
 unpack_add_info(LogReaderObject *self)
 {
-    PyObject *key;
+    PyObject *key = NULL;
     PyObject *value = NULL;
     int err;
 
