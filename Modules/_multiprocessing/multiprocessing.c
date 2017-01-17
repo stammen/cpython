@@ -295,7 +295,7 @@ init_multiprocessing(void)
     PyModule_AddObject(module, "SemLock", (PyObject*)&SemLockType);
 #endif
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS)  && defined(HAVE_PIPES)
     /* Add PipeConnection to module */
     if (PyType_Ready(&PipeConnectionType) < 0)
         return;
