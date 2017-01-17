@@ -4778,7 +4778,6 @@ PyDoc_STRVAR(posix__isdir__doc__,
 static PyObject *
 posix__isdir(PyObject *self, PyObject *args)
 {
-    PyObject *opath;
     char *path;
     PyUnicodeObject *po;
     DWORD attributes;

@@ -252,6 +252,11 @@ typedef int pid_t;
 #define hypot _hypot
 #endif
 
+/* Side by Side assemblies supported in VS 2005 and VS 2008 but not 2010*/
+#if _MSC_VER >= 1400 && _MSC_VER < 1600
+#define HAVE_SXS 1
+#endif
+
 #endif /* _MSC_VER */
 
 /* define some ANSI types that are not defined in earlier Win headers */

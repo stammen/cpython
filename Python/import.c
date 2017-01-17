@@ -1741,7 +1741,7 @@ case_ok(char *buf, Py_ssize_t len, Py_ssize_t namelen, char *name)
         return 0;
     }
     FindClose(h);
-    return strncmp_t(data.cFileName, wszFilename, namelen) == 0;
+    return wcsncmp(data.cFileName, wszFilename, namelen) == 0;
 #else
     WIN32_FIND_DATA data;
     HANDLE h;
