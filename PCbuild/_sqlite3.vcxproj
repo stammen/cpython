@@ -37,6 +37,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{13CECB97-4119-4316-9D42-8534019A5A44}</ProjectGuid>
     <RootNamespace>_sqlite3</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
     <WindowsTargetPlatformVersion>10.0.10586.0</WindowsTargetPlatformVersion>
@@ -88,7 +89,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(sqlite3Dir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>MODULE_NAME="sqlite3";SQLITE_OS_WINRT=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsWinRT>
       <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsWinRT>
@@ -137,10 +138,6 @@
   <ItemGroup>
     <ProjectReference Include="pythoncore.vcxproj">
       <Project>{cf7ac3d1-e2df-41d2-bea6-1e2556cdea26}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
-    <ProjectReference Include="sqlite3.vcxproj">
-      <Project>{a1a295e5-463c-437f-81ca-1f32367685da}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>

@@ -1730,7 +1730,7 @@ case_ok(char *buf, Py_ssize_t len, Py_ssize_t namelen, char *name)
 
     WCHAR wszFilename[MAX_PATH];
     MultiByteToWideChar(CP_ACP, 0,
-        name, -1,
+        buf, -1,
         wszFilename, MAX_PATH);
 
     h = FindFirstFileEx(wszFilename, FindExInfoBasic, &data, FindExSearchNameMatch, NULL, 0);
@@ -1741,6 +1741,11 @@ case_ok(char *buf, Py_ssize_t len, Py_ssize_t namelen, char *name)
         return 0;
     }
     FindClose(h);
+
+    MultiByteToWideChar(CP_ACP, 0,
+        name, -1,
+        wszFilename, MAX_PATH);
+
     return wcsncmp(data.cFileName, wszFilename, namelen) == 0;
 #else
     WIN32_FIND_DATA data;
