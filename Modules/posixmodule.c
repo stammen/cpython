@@ -2923,31 +2923,112 @@ posix_listdir(PyObject *self, PyObject *args)
 #endif /* which OS */
 }  /* end of posix_listdir */
 
+
 #ifdef MS_WINDOWS
+#ifdef MS_UWP
+
+  /* A helper function to get a wchar_t string from a python unicde object
+     caller must call PyMem_FREE on returned wchar_t* */
+static wchar_t *
+posix__pyunicode_to_wchar(PyObject *ob, Py_ssize_t* size)
+{
+    wchar_t *ws1 = NULL;
+    Py_ssize_t len1  = 0;
+
+    /* Convert the unicode strings to wchar[]. */
+    len1 = PyUnicode_GET_SIZE(ob) + 1;
+    ws1 = PyMem_NEW(wchar_t, len1);
+    if (!ws1) {
+        PyErr_NoMemory();
+        goto done;
+    }
+
+    if (PyUnicode_AsWideChar((PyUnicodeObject*)ob, ws1, len1) == -1) {
+        goto done;
+    }
+
+    ws1[len1 - 1] = 0;
+
+done:
+    *size = len1;
+    return ws1;
+}
+
 /* A helper function for abspath on win32 */
 static PyObject *
 posix__getfullpathname(PyObject *self, PyObject *args)
 {
     /* assume encoded strings won't more than double no of chars */
-    char inbuf[MAX_PATH*2];
+    char inbuf[MAX_PATH * 2];
     char *inbufp = inbuf;
     Py_ssize_t insize = sizeof(inbuf);
-#ifndef MS_UWP
+    char *temp = NULL;
+    PyObject *po = NULL;
+
+    if (!PyArg_ParseTuple(args, "U|:_getfullpathname", &po)) {
+
+        if (!PyArg_ParseTuple(args, "et#:_getfullpathname",
+            Py_FileSystemDefaultEncoding, &inbufp,
+            &insize))
+            return NULL;
+        
+        /* Drop the argument parsing error as narrow strings
+        are also valid. */
+        PyErr_Clear();
+
+        po = PyUnicode_FromStringAndSize(inbufp, insize);
+        if (!po)
+        {
+            return NULL;
+        }
+    }
+
+    Py_UNICODE *wpath = PyUnicode_AS_UNICODE(po);
+    Py_UNICODE woutbuf[MAX_PATH * 2], *woutbufp = woutbuf;
+    Py_UNICODE *wtemp;
+    DWORD result;
+    PyObject *v;
+    result = GetFullPathNameW(wpath,
+        sizeof(woutbuf) / sizeof(woutbuf[0]),
+        woutbuf, &wtemp);
+    if (result > sizeof(woutbuf) / sizeof(woutbuf[0])) {
+        woutbufp = malloc(result * sizeof(Py_UNICODE));
+        if (!woutbufp)
+            return PyErr_NoMemory();
+        result = GetFullPathNameW(wpath, result, woutbufp, &wtemp);
+    }
+    if (result)
+        v = PyUnicode_FromUnicode(woutbufp, wcslen(woutbufp));
+    else
+        v = win32_error_unicode("GetFullPathNameW", wpath);
+    if (woutbufp != woutbuf)
+        free(woutbufp);
+
+    return v;
+} /* end of posix__getfullpathname */
+#else /* MS_WINDOWS */
+   /* A helper function for abspath on win32 */
+static PyObject *
+posix__getfullpathname(PyObject *self, PyObject *args)
+{
+    /* assume encoded strings won't more than double no of chars */
+    char inbuf[MAX_PATH * 2];
+    char *inbufp = inbuf;
+    Py_ssize_t insize = sizeof(inbuf);
     char outbuf[MAX_PATH * 2];
     char *temp;
-#endif
 
     PyUnicodeObject *po;
     if (PyArg_ParseTuple(args, "U|:_getfullpathname", &po)) {
         Py_UNICODE *wpath = PyUnicode_AS_UNICODE(po);
-        Py_UNICODE woutbuf[MAX_PATH*2], *woutbufp = woutbuf;
+        Py_UNICODE woutbuf[MAX_PATH * 2], *woutbufp = woutbuf;
         Py_UNICODE *wtemp;
         DWORD result;
         PyObject *v;
         result = GetFullPathNameW(wpath,
-                                  sizeof(woutbuf)/sizeof(woutbuf[0]),
-                                  woutbuf, &wtemp);
-        if (result > sizeof(woutbuf)/sizeof(woutbuf[0])) {
+            sizeof(woutbuf) / sizeof(woutbuf[0]),
+            woutbuf, &wtemp);
+        if (result > sizeof(woutbuf) / sizeof(woutbuf[0])) {
             woutbufp = malloc(result * sizeof(Py_UNICODE));
             if (!woutbufp)
                 return PyErr_NoMemory();
@@ -2961,27 +3042,24 @@ posix__getfullpathname(PyObject *self, PyObject *args)
             free(woutbufp);
         return v;
     }
-#ifndef MS_UWP
     /* Drop the argument parsing error as narrow strings
-       are also valid. */
+    are also valid. */
     PyErr_Clear();
 
-    if (!PyArg_ParseTuple (args, "et#:_getfullpathname",
-                           Py_FileSystemDefaultEncoding, &inbufp,
-                           &insize))
+    if (!PyArg_ParseTuple(args, "et#:_getfullpathname",
+        Py_FileSystemDefaultEncoding, &inbufp,
+        &insize))
         return NULL;
-    if (!GetFullPathName(inbuf, sizeof(outbuf)/sizeof(outbuf[0]),
-                         outbuf, &temp))
+    if (!GetFullPathName(inbuf, sizeof(outbuf) / sizeof(outbuf[0]),
+        outbuf, &temp))
         return win32_error("GetFullPathName", inbuf);
     if (PyUnicode_Check(PyTuple_GetItem(args, 0))) {
         return PyUnicode_Decode(outbuf, strlen(outbuf),
-                                Py_FileSystemDefaultEncoding, NULL);
+            Py_FileSystemDefaultEncoding, NULL);
     }
     return PyString_FromString(outbuf);
-#else
-    return NULL;
-#endif
 } /* end of posix__getfullpathname */
+#endif /* MS_UWP */
 #endif /* MS_WINDOWS */
 
 PyDoc_STRVAR(posix_mkdir__doc__,
@@ -4779,53 +4857,88 @@ win32_kill(PyObject *self, PyObject *args)
 PyDoc_STRVAR(posix__isdir__doc__,
 "Return true if the pathname refers to an existing directory.");
 
+#ifdef MS_UWP
 static PyObject *
 posix__isdir(PyObject *self, PyObject *args)
 {
-#ifndef MS_UWP
+    PyObject *po;
+    DWORD attributes;
+    char inbuf[MAX_PATH * 2];
+    char *inbufp = inbuf;
+    Py_ssize_t insize = sizeof(inbuf);
+
+    if (!PyArg_ParseTuple(args, "U|:_isdir", &po)) {
+
+        /* Drop the argument parsing error as narrow strings
+        are also valid. */
+        PyErr_Clear();
+        
+        if (!PyArg_ParseTuple(args, "et#:_isdir",
+            Py_FileSystemDefaultEncoding, &inbufp,
+            &insize))
+            return NULL;
+
+        po = PyUnicode_FromStringAndSize(inbufp, insize);
+        if (!po)
+        {
+            return NULL;
+        }
+    }
+
+    Py_UNICODE *wpath = PyUnicode_AS_UNICODE(po);
+
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    if (!GetFileAttributesEx(wpath, GetFileExInfoStandard, &fad))
+    {
+        Py_RETURN_FALSE;
+    }
+    attributes = fad.dwFileAttributes;
+
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+        Py_RETURN_FALSE;
+
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+        Py_RETURN_TRUE;
+    else
+        Py_RETURN_FALSE;
+}
+#else
+static PyObject *
+posix__isdir(PyObject *self, PyObject *args)
+{
+    PyObject *opath;
     char *path;
-#endif
     PyUnicodeObject *po;
     DWORD attributes;
 
     if (PyArg_ParseTuple(args, "U|:_isdir", &po)) {
         Py_UNICODE *wpath = PyUnicode_AS_UNICODE(po);
 
-#ifdef MS_UWP
-        WIN32_FILE_ATTRIBUTE_DATA fad;
-        if (!GetFileAttributesEx(wpath, GetFileExInfoStandard, &fad))
-        {
-            Py_RETURN_FALSE;
-        }
-        attributes = fad.dwFileAttributes;
-#else
         attributes = GetFileAttributesW(wpath);
-#endif
         if (attributes == INVALID_FILE_ATTRIBUTES)
             Py_RETURN_FALSE;
         goto check;
     }
-
-#ifndef MS_UWP
     /* Drop the argument parsing error as narrow strings
-       are also valid. */
+    are also valid. */
     PyErr_Clear();
 
     if (!PyArg_ParseTuple(args, "et:_isdir",
-                          Py_FileSystemDefaultEncoding, &path))
+        Py_FileSystemDefaultEncoding, &path))
         return NULL;
 
     attributes = GetFileAttributesA(path);
     PyMem_Free(path);
     if (attributes == INVALID_FILE_ATTRIBUTES)
         Py_RETURN_FALSE;
-#endif
+
 check:
     if (attributes & FILE_ATTRIBUTE_DIRECTORY)
         Py_RETURN_TRUE;
     else
         Py_RETURN_FALSE;
 }
+#endif /* MS_UWP */
 #endif /* MS_WINDOWS */
 
 #ifdef HAVE_PLOCK
