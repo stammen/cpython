@@ -2586,9 +2586,8 @@ posix_link(PyObject *self, PyObject *args)
 }
 #endif /* HAVE_LINK */
 
-
 PyDoc_STRVAR(posix_listdir__doc__,
-"listdir(path) -> list_of_strings\n\n\
+    "listdir(path) -> list_of_strings\n\n\
 Return a list containing the names of the entries in the directory.\n\
 \n\
     path: path of directory to list\n\
@@ -2596,22 +2595,136 @@ Return a list containing the names of the entries in the directory.\n\
 The list is in arbitrary order.  It does not include the special\n\
 entries '.' and '..' even if they are present in the directory.");
 
+#ifdef MS_UWP
 static PyObject *
 posix_listdir(PyObject *self, PyObject *args)
 {
     /* XXX Should redo this putting the (now four) versions of opendir
-       in separate files instead of having them all here... */
-#if defined(MS_WINDOWS) && !defined(HAVE_OPENDIR)
+    in separate files instead of having them all here... */
 
     PyObject *d = NULL, *v = NULL;
     HANDLE hFindFile = NULL;
     BOOL result;
-#ifndef MS_UWP
-    WIN32_FIND_DATA FileData;
-#endif
-    char namebuf[MAX_PATH+5]; /* Overallocate for \\*.*\0 */
+    char inbuf[MAX_PATH * 2];
+    char *inbufp = inbuf;
+    Py_ssize_t insize = sizeof(inbuf);
+
+    char namebuf[MAX_PATH + 5]; /* Overallocate for \\*.*\0 */
     char *bufptr = namebuf;
-    Py_ssize_t len = sizeof(namebuf)-5; /* only claim to have space for MAX_PATH */
+    Py_ssize_t len = sizeof(namebuf) - 5; /* only claim to have space for MAX_PATH */
+
+    PyObject *po;
+    if (!PyArg_ParseTuple(args, "U:listdir", &po)) {
+        /* Drop the argument parsing error as narrow strings
+        are also valid. */
+        PyErr_Clear();
+
+        if (!PyArg_ParseTuple(args, "et#:listdir",
+            Py_FileSystemDefaultEncoding, &inbufp,
+            &insize))
+            return NULL;
+
+        po = PyUnicode_FromStringAndSize(inbufp, insize);
+        if (!po)
+        {
+            return NULL;
+        }
+    }
+    
+
+    WIN32_FIND_DATAW wFileData;
+    Py_UNICODE *wnamebuf;
+    /* Overallocate for \\*.*\0 */
+    len = PyUnicode_GET_SIZE(po);
+    wnamebuf = malloc((len + 5) * sizeof(wchar_t));
+    if (!wnamebuf) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    wcscpy(wnamebuf, PyUnicode_AS_UNICODE(po));
+    if (len > 0) {
+        Py_UNICODE wch = wnamebuf[len - 1];
+        if (wch != L'/' && wch != L'\\' && wch != L':')
+            wnamebuf[len++] = L'\\';
+        wcscpy(wnamebuf + len, L"*.*");
+    }
+    if ((d = PyList_New(0)) == NULL) {
+        free(wnamebuf);
+        return NULL;
+    }
+    Py_BEGIN_ALLOW_THREADS
+        hFindFile = FindFirstFileExW(wnamebuf, FindExInfoBasic, &wFileData, FindExSearchNameMatch, NULL, 0);
+
+    Py_END_ALLOW_THREADS
+        if (hFindFile == INVALID_HANDLE_VALUE) {
+            int error = GetLastError();
+            if (error == ERROR_FILE_NOT_FOUND) {
+                free(wnamebuf);
+                return d;
+            }
+            Py_DECREF(d);
+            win32_error_unicode("FindFirstFileW", wnamebuf);
+            free(wnamebuf);
+            return NULL;
+        }
+    do {
+        /* Skip over . and .. */
+        if (wcscmp(wFileData.cFileName, L".") != 0 &&
+            wcscmp(wFileData.cFileName, L"..") != 0) {
+            v = PyUnicode_FromUnicode(wFileData.cFileName, wcslen(wFileData.cFileName));
+            if (v == NULL) {
+                Py_DECREF(d);
+                d = NULL;
+                break;
+            }
+            if (PyList_Append(d, v) != 0) {
+                Py_DECREF(v);
+                Py_DECREF(d);
+                d = NULL;
+                break;
+            }
+            Py_DECREF(v);
+        }
+        Py_BEGIN_ALLOW_THREADS
+            result = FindNextFileW(hFindFile, &wFileData);
+        Py_END_ALLOW_THREADS
+            /* FindNextFile sets error to ERROR_NO_MORE_FILES if
+            it got to the end of the directory. */
+            if (!result && GetLastError() != ERROR_NO_MORE_FILES) {
+                Py_DECREF(d);
+                win32_error_unicode("FindNextFileW", wnamebuf);
+                FindClose(hFindFile);
+                free(wnamebuf);
+                return NULL;
+            }
+    } while (result == TRUE);
+
+    if (FindClose(hFindFile) == FALSE) {
+        Py_DECREF(d);
+        win32_error_unicode("FindClose", wnamebuf);
+        free(wnamebuf);
+        return NULL;
+    }
+    free(wnamebuf);
+    return d;
+}
+
+
+#else
+static PyObject *
+posix_listdir(PyObject *self, PyObject *args)
+{
+    /* XXX Should redo this putting the (now four) versions of opendir
+    in separate files instead of having them all here... */
+#if defined(MS_WINDOWS) && !defined(HAVE_OPENDIR)
+
+    PyObject *d, *v;
+    HANDLE hFindFile;
+    BOOL result;
+    WIN32_FIND_DATA FileData;
+    char namebuf[MAX_PATH + 5]; /* Overallocate for \\*.*\0 */
+    char *bufptr = namebuf;
+    Py_ssize_t len = sizeof(namebuf) - 5; /* only claim to have space for MAX_PATH */
 
     PyObject *po;
     if (PyArg_ParseTuple(args, "U:listdir", &po)) {
@@ -2626,7 +2739,7 @@ posix_listdir(PyObject *self, PyObject *args)
         }
         wcscpy(wnamebuf, PyUnicode_AS_UNICODE(po));
         if (len > 0) {
-            Py_UNICODE wch = wnamebuf[len-1];
+            Py_UNICODE wch = wnamebuf[len - 1];
             if (wch != L'/' && wch != L'\\' && wch != L':')
                 wnamebuf[len++] = L'\\';
             wcscpy(wnamebuf + len, L"*.*");
@@ -2636,23 +2749,19 @@ posix_listdir(PyObject *self, PyObject *args)
             return NULL;
         }
         Py_BEGIN_ALLOW_THREADS
-#ifdef MS_UWP
-        hFindFile = FindFirstFileExW(wnamebuf, FindExInfoBasic, &wFileData, FindExSearchNameMatch, NULL, 0);
-#else
-        hFindFile = FindFirstFileW(wnamebuf, &wFileData);
-#endif
+            hFindFile = FindFirstFileW(wnamebuf, &wFileData);
         Py_END_ALLOW_THREADS
-        if (hFindFile == INVALID_HANDLE_VALUE) {
-            int error = GetLastError();
-            if (error == ERROR_FILE_NOT_FOUND) {
+            if (hFindFile == INVALID_HANDLE_VALUE) {
+                int error = GetLastError();
+                if (error == ERROR_FILE_NOT_FOUND) {
+                    free(wnamebuf);
+                    return d;
+                }
+                Py_DECREF(d);
+                win32_error_unicode("FindFirstFileW", wnamebuf);
                 free(wnamebuf);
-                return d;
+                return NULL;
             }
-            Py_DECREF(d);
-            win32_error_unicode("FindFirstFileW", wnamebuf);
-            free(wnamebuf);
-            return NULL;
-        }
         do {
             /* Skip over . and .. */
             if (wcscmp(wFileData.cFileName, L".") != 0 &&
@@ -2672,17 +2781,17 @@ posix_listdir(PyObject *self, PyObject *args)
                 Py_DECREF(v);
             }
             Py_BEGIN_ALLOW_THREADS
-            result = FindNextFileW(hFindFile, &wFileData);
+                result = FindNextFileW(hFindFile, &wFileData);
             Py_END_ALLOW_THREADS
-            /* FindNextFile sets error to ERROR_NO_MORE_FILES if
-               it got to the end of the directory. */
-            if (!result && GetLastError() != ERROR_NO_MORE_FILES) {
-                Py_DECREF(d);
-                win32_error_unicode("FindNextFileW", wnamebuf);
-                FindClose(hFindFile);
-                free(wnamebuf);
-                return NULL;
-            }
+                /* FindNextFile sets error to ERROR_NO_MORE_FILES if
+                it got to the end of the directory. */
+                if (!result && GetLastError() != ERROR_NO_MORE_FILES) {
+                    Py_DECREF(d);
+                    win32_error_unicode("FindNextFileW", wnamebuf);
+                    FindClose(hFindFile);
+                    free(wnamebuf);
+                    return NULL;
+                }
         } while (result == TRUE);
 
         if (FindClose(hFindFile) == FALSE) {
@@ -2694,18 +2803,15 @@ posix_listdir(PyObject *self, PyObject *args)
         free(wnamebuf);
         return d;
     }
-
-#ifndef MS_UWP
-
     /* Drop the argument parsing error as narrow strings
-       are also valid. */
+    are also valid. */
     PyErr_Clear();
 
     if (!PyArg_ParseTuple(args, "et#:listdir",
-                          Py_FileSystemDefaultEncoding, &bufptr, &len))
+        Py_FileSystemDefaultEncoding, &bufptr, &len))
         return NULL;
     if (len > 0) {
-        char ch = namebuf[len-1];
+        char ch = namebuf[len - 1];
         if (ch != SEP && ch != ALTSEP && ch != ':')
             namebuf[len++] = '/';
         strcpy(namebuf + len, "*.*");
@@ -2715,15 +2821,15 @@ posix_listdir(PyObject *self, PyObject *args)
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
-    hFindFile = FindFirstFile(namebuf, &FileData);
+        hFindFile = FindFirstFile(namebuf, &FileData);
     Py_END_ALLOW_THREADS
-    if (hFindFile == INVALID_HANDLE_VALUE) {
-        int error = GetLastError();
-        if (error == ERROR_FILE_NOT_FOUND)
-            return d;
-        Py_DECREF(d);
-        return win32_error("FindFirstFile", namebuf);
-    }
+        if (hFindFile == INVALID_HANDLE_VALUE) {
+            int error = GetLastError();
+            if (error == ERROR_FILE_NOT_FOUND)
+                return d;
+            Py_DECREF(d);
+            return win32_error("FindFirstFile", namebuf);
+        }
     do {
         /* Skip over . and .. */
         if (strcmp(FileData.cFileName, ".") != 0 &&
@@ -2743,18 +2849,18 @@ posix_listdir(PyObject *self, PyObject *args)
             Py_DECREF(v);
         }
         Py_BEGIN_ALLOW_THREADS
-        result = FindNextFile(hFindFile, &FileData);
+            result = FindNextFile(hFindFile, &FileData);
         Py_END_ALLOW_THREADS
-        /* FindNextFile sets error to ERROR_NO_MORE_FILES if
-           it got to the end of the directory. */
-        if (!result && GetLastError() != ERROR_NO_MORE_FILES) {
-            Py_DECREF(d);
-            win32_error("FindNextFile", namebuf);
-            FindClose(hFindFile);
-            return NULL;
-        }
+            /* FindNextFile sets error to ERROR_NO_MORE_FILES if
+            it got to the end of the directory. */
+            if (!result && GetLastError() != ERROR_NO_MORE_FILES) {
+                Py_DECREF(d);
+                win32_error("FindNextFile", namebuf);
+                FindClose(hFindFile);
+                return NULL;
+            }
     } while (result == TRUE);
-#endif
+
     if (FindClose(hFindFile) == FALSE) {
         Py_DECREF(d);
         return win32_error("FindClose", namebuf);
@@ -2770,7 +2876,7 @@ posix_listdir(PyObject *self, PyObject *args)
     char *name, *pt;
     Py_ssize_t len;
     PyObject *d, *v;
-    char namebuf[MAX_PATH+5];
+    char namebuf[MAX_PATH + 5];
     HDIR  hdir = 1;
     ULONG srchcnt = 1;
     FILEFINDBUF3   ep;
@@ -2786,7 +2892,7 @@ posix_listdir(PyObject *self, PyObject *args)
     for (pt = namebuf; *pt; pt++)
         if (*pt == ALTSEP)
             *pt = SEP;
-    if (namebuf[len-1] != SEP)
+    if (namebuf[len - 1] != SEP)
         namebuf[len++] = SEP;
     strcpy(namebuf + len, "*.*");
 
@@ -2794,11 +2900,11 @@ posix_listdir(PyObject *self, PyObject *args)
         return NULL;
 
     rc = DosFindFirst(namebuf,         /* Wildcard Pattern to Match */
-                      &hdir,           /* Handle to Use While Search Directory */
-                      FILE_READONLY | FILE_HIDDEN | FILE_SYSTEM | FILE_DIRECTORY,
-                      &ep, sizeof(ep), /* Structure to Receive Directory Entry */
-                      &srchcnt,        /* Max and Actual Count of Entries Per Iteration */
-                      FIL_STANDARD);   /* Format of Entry (EAs or Not) */
+        &hdir,           /* Handle to Use While Search Directory */
+        FILE_READONLY | FILE_HIDDEN | FILE_SYSTEM | FILE_DIRECTORY,
+        &ep, sizeof(ep), /* Structure to Receive Directory Entry */
+        &srchcnt,        /* Max and Actual Count of Entries Per Iteration */
+        FIL_STANDARD);   /* Format of Entry (EAs or Not) */
 
     if (rc != NO_ERROR) {
         errno = ENOENT;
@@ -2808,7 +2914,7 @@ posix_listdir(PyObject *self, PyObject *args)
     if (srchcnt > 0) { /* If Directory is NOT Totally Empty, */
         do {
             if (ep.achName[0] == '.'
-            && (ep.achName[1] == '\0' || (ep.achName[1] == '.' && ep.achName[2] == '\0')))
+                && (ep.achName[1] == '\0' || (ep.achName[1] == '.' && ep.achName[2] == '\0')))
                 continue; /* Skip Over "." and ".." Names */
 
             strcpy(namebuf, ep.achName);
@@ -2849,37 +2955,38 @@ posix_listdir(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "et:listdir", Py_FileSystemDefaultEncoding, &name))
         return NULL;
     Py_BEGIN_ALLOW_THREADS
-    dirp = opendir(name);
+        dirp = opendir(name);
     Py_END_ALLOW_THREADS
-    if (dirp == NULL) {
-        return posix_error_with_allocated_filename(name);
-    }
+        if (dirp == NULL) {
+            return posix_error_with_allocated_filename(name);
+        }
     if ((d = PyList_New(0)) == NULL) {
         Py_BEGIN_ALLOW_THREADS
-        closedir(dirp);
+            closedir(dirp);
         Py_END_ALLOW_THREADS
-        PyMem_Free(name);
+            PyMem_Free(name);
         return NULL;
     }
     for (;;) {
         errno = 0;
         Py_BEGIN_ALLOW_THREADS
-        ep = readdir(dirp);
+            ep = readdir(dirp);
         Py_END_ALLOW_THREADS
-        if (ep == NULL) {
-            if (errno == 0) {
-                break;
-            } else {
-                Py_BEGIN_ALLOW_THREADS
-                closedir(dirp);
-                Py_END_ALLOW_THREADS
-                Py_DECREF(d);
-                return posix_error_with_allocated_filename(name);
+            if (ep == NULL) {
+                if (errno == 0) {
+                    break;
+                }
+                else {
+                    Py_BEGIN_ALLOW_THREADS
+                        closedir(dirp);
+                    Py_END_ALLOW_THREADS
+                        Py_DECREF(d);
+                    return posix_error_with_allocated_filename(name);
+                }
             }
-        }
         if (ep->d_name[0] == '.' &&
             (NAMLEN(ep) == 1 ||
-             (ep->d_name[1] == '.' && NAMLEN(ep) == 2)))
+            (ep->d_name[1] == '.' && NAMLEN(ep) == 2)))
             continue;
         v = PyString_FromStringAndSize(ep->d_name, NAMLEN(ep));
         if (v == NULL) {
@@ -2892,15 +2999,15 @@ posix_listdir(PyObject *self, PyObject *args)
             PyObject *w;
 
             w = PyUnicode_FromEncodedObject(v,
-                                            Py_FileSystemDefaultEncoding,
-                                            "strict");
+                Py_FileSystemDefaultEncoding,
+                "strict");
             if (w != NULL) {
                 Py_DECREF(v);
                 v = w;
             }
             else {
                 /* fall back to the original byte string, as
-                   discussed in patch #683592 */
+                discussed in patch #683592 */
                 PyErr_Clear();
             }
         }
@@ -2914,15 +3021,15 @@ posix_listdir(PyObject *self, PyObject *args)
         Py_DECREF(v);
     }
     Py_BEGIN_ALLOW_THREADS
-    closedir(dirp);
+        closedir(dirp);
     Py_END_ALLOW_THREADS
-    PyMem_Free(name);
+        PyMem_Free(name);
 
     return d;
 
 #endif /* which OS */
 }  /* end of posix_listdir */
-
+#endif /* MS_UWP */
 
 #ifdef MS_WINDOWS
 #ifdef MS_UWP
@@ -2967,14 +3074,16 @@ posix__getfullpathname(PyObject *self, PyObject *args)
 
     if (!PyArg_ParseTuple(args, "U|:_getfullpathname", &po)) {
 
+        /* Drop the argument parsing error as narrow strings
+        are also valid. */
+        PyErr_Clear();
+        
         if (!PyArg_ParseTuple(args, "et#:_getfullpathname",
             Py_FileSystemDefaultEncoding, &inbufp,
             &insize))
             return NULL;
         
-        /* Drop the argument parsing error as narrow strings
-        are also valid. */
-        PyErr_Clear();
+
 
         po = PyUnicode_FromStringAndSize(inbufp, insize);
         if (!po)
