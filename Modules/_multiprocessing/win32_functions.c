@@ -135,6 +135,12 @@ win32_CreateNamedPipe(PyObject *self, PyObject *args)
 static PyObject *
 win32_ExitProcess(PyObject *self, PyObject *args)
 {
+#ifdef MS_UWP
+    PyErr_WarnEx(PyExc_DeprecationWarning,
+        "win32_ExitProcess has been deprecated for UWP apps, "
+        "use absolute paths instead.",
+        0);
+#else
     UINT uExitCode;
 
     if (!PyArg_ParseTuple(args, "I", &uExitCode))
@@ -146,7 +152,6 @@ win32_ExitProcess(PyObject *self, PyObject *args)
     #endif
 
 
-#ifndef MS_UWP
     ExitProcess(uExitCode);
 #endif
 

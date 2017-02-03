@@ -950,7 +950,6 @@ win32_1str(PyObject* args, char* func,
 }
 
 #ifdef MS_UWP
-
 /* Changing the current directory is not supported for UWP apps,
 so these are implemented to provide warnings only. */
 
@@ -963,7 +962,6 @@ win32_chdir(LPCSTR path)
         0);
     return TRUE;
 }
-
 #else
 /* This is a reimplementation of the C library's chdir function,
    but one that produces Win32 errors instead of DOS error codes.
