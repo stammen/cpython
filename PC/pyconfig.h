@@ -106,14 +106,6 @@ WIN32 is still required for the locale module.
 #define environ (NULL)
 #endif
 
-#if defined(MS_UWP)
-/* UWP apps do not have environment variables */
-#define getenv(v) (NULL)
-#undef environ
-#define environ (NULL)
-/* getpid is not available, but GetCurrentProcessId is */
-#define getpid GetCurrentProcessId
-#endif
 
 /* Compiler specific defines */
 

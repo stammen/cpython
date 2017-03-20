@@ -11,6 +11,12 @@ int _Py_HashSecret_Initialized = 0;
 static int _Py_HashSecret_Initialized = 0;
 #endif
 
+#if defined(MS_UWP)
+/* UWP apps do not have environment variables */
+#define getenv(v) (NULL)
+#endif
+
+
 #ifdef MS_WINDOWS
 #ifndef MS_UWP
 

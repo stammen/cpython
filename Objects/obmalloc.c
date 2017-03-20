@@ -1,5 +1,11 @@
 #include "Python.h"
 
+#if defined(MS_UWP)
+/* UWP apps do not have environment variables */
+#define getenv(v) (NULL)
+#endif
+
+
 #if defined(__has_feature)  /* Clang */
  #if __has_feature(address_sanitizer)  /* is ASAN enabled? */
   #define ATTRIBUTE_NO_ADDRESS_SAFETY_ANALYSIS \

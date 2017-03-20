@@ -27,6 +27,16 @@
 #include <io.h>
 #endif
 
+#if defined(MS_UWP)
+/* UWP apps do not have environment variables */
+#define getenv(v) (NULL)
+#undef environ
+#define environ (NULL)
+/* getpid is not available, but GetCurrentProcessId is */
+#define getpid GetCurrentProcessId
+#endif
+
+
 #ifdef HAVE_FTIME
 #include <sys/timeb.h>
 #if !defined(MS_WINDOWS) && !defined(PYOS_OS2)

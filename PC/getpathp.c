@@ -57,6 +57,11 @@
 #include "Python.h"
 #include "osdefs.h"
 
+#if defined(MS_UWP)
+#define getenv(v) (NULL)
+#endif
+
+
 #ifdef MS_WINDOWS
 #include <windows.h>
 #include <tchar.h>

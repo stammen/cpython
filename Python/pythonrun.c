@@ -27,6 +27,16 @@
 #include "malloc.h" /* for alloca */
 #endif
 
+#if defined(MS_UWP)
+/* UWP apps do not have environment variables */
+#define getenv(v) (NULL)
+#undef environ
+#define environ (NULL)
+/* getpid is not available, but GetCurrentProcessId is */
+#define getpid GetCurrentProcessId
+#endif
+
+
 #ifdef HAVE_LANGINFO_H
 #include <locale.h>
 #include <langinfo.h>
