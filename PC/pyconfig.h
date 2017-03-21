@@ -82,7 +82,9 @@ WIN32 is still required for the locale module.
 #ifdef WINAPI_FAMILY
 #   include <winapifamily.h>
 #   if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
+#     ifndef MS_UWP
 #       define MS_UWP
+#     endif
 #   endif
 #endif
 #ifndef PYTHONPATH
