@@ -58,7 +58,8 @@
 #include "osdefs.h"
 
 #if defined(MS_UWP)
-#define getenv(v) (NULL)
+#include "win10.h"
+#define getenv(v) win10_getenv
 #endif
 
 

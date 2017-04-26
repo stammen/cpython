@@ -9,7 +9,8 @@
 
 #if defined(MS_UWP)
 /* UWP apps do not have environment variables */
-#define getenv(v) (NULL)
+#include "win10.h"
+#define getenv(v) win10_getenv
 #endif
 
 
