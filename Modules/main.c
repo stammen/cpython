@@ -16,8 +16,11 @@
 #endif
 
 #if defined(MS_UWP)
+#pragma comment(lib, "win10.lib")
+
 /* UWP apps do not have environment variables */
-#define getenv(v) (NULL)
+#include "win10.h"
+#define getenv(v) win10_getenv
 #undef environ
 #define environ (NULL)
 /* getpid is not available, but GetCurrentProcessId is */

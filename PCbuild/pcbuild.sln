@@ -33,6 +33,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "_multiprocessing", "_multip
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PythonUWP", "..\PythonUWP\PythonUWP.vcxproj", "{E1FCB649-AE66-4650-83AF-24C058ECBB5E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "win10", "Win10\win10.vcxproj", "{282E425E-DA74-4140-9314-E85CA5AADEAF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -325,6 +327,30 @@ Global
 		{E1FCB649-AE66-4650-83AF-24C058ECBB5E}.Release|x64.ActiveCfg = Release|x64
 		{E1FCB649-AE66-4650-83AF-24C058ECBB5E}.Release|x64.Build.0 = Release|x64
 		{E1FCB649-AE66-4650-83AF-24C058ECBB5E}.Release|x64.Deploy.0 = Release|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Debug|ARM.ActiveCfg = Debug|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Debug|ARM.Build.0 = Debug|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Debug|Win32.Build.0 = Debug|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Debug|x64.ActiveCfg = Debug|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Debug|x64.Build.0 = Debug|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGInstrument|ARM.ActiveCfg = Release|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGInstrument|ARM.Build.0 = Release|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGInstrument|Win32.ActiveCfg = Release|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGInstrument|Win32.Build.0 = Release|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGInstrument|x64.ActiveCfg = Release|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGInstrument|x64.Build.0 = Release|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGUpdate|ARM.ActiveCfg = Release|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGUpdate|ARM.Build.0 = Release|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGUpdate|Win32.ActiveCfg = Release|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGUpdate|Win32.Build.0 = Release|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGUpdate|x64.ActiveCfg = Release|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.PGUpdate|x64.Build.0 = Release|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Release|ARM.ActiveCfg = Release|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Release|ARM.Build.0 = Release|ARM
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Release|Win32.ActiveCfg = Release|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Release|Win32.Build.0 = Release|Win32
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Release|x64.ActiveCfg = Release|x64
+		{282E425E-DA74-4140-9314-E85CA5AADEAF}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
