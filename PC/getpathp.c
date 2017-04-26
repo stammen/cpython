@@ -59,7 +59,7 @@
 
 #if defined(MS_UWP)
 #include "win10.h"
-#define getenv(v) win10_getenv
+#define getenv win10_getenv
 #endif
 
 

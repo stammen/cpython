@@ -14,7 +14,7 @@ static int _Py_HashSecret_Initialized = 0;
 #if defined(MS_UWP)
 /* UWP apps do not have environment variables */
 #include "win10.h"
-#define getenv(v) win10_getenv
+#define getenv win10_getenv
 #endif
 
 
