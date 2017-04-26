@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "win10.h"
 #include <string>
+#include <map>
 
 using namespace Windows::Storage;
 using namespace Windows::Foundation;
@@ -97,7 +98,7 @@ int putenv(const char* k, const char* v)
 
 char* win10_getenv(const char* n)
 {
-  static std::string result;
+  static std::map<std::string, std::string> sEnvironment;
   bool success;
 
   if (n == NULL)
@@ -121,10 +122,11 @@ char* win10_getenv(const char* n)
       if (values->HasKey(key))
       {
         auto value = safe_cast<Platform::String^>(values->Lookup(key));
-        result = win32ConvertWToUtf8(std::wstring(value->Data()), &success);
+        std::string result = win32ConvertWToUtf8(std::wstring(value->Data()), &success);
         if (success)
         {
-          return (char*)(result.c_str());
+          sEnvironment[name] = result;
+          return (char*)(sEnvironment[name].c_str());
         }
       }
     }
